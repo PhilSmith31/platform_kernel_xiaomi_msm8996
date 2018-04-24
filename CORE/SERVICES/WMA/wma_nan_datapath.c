@@ -483,6 +483,15 @@ static int wma_ndp_indication_event_handler(void *handle, uint8_t  *event_info,
 		WMA_LOGE("%s: excess wmi buffer: ndp_cfg_len %d",
 			 __func__, fixed_params->ndp_app_info_len);
 		return -EINVAL;
+	} else {
+		total_array_len += fixed_params->ndp_app_info_len;
+	}
+
+	if (fixed_params->nan_scid_len >
+		(WMA_SVC_MSG_MAX_SIZE - total_array_len)) {
+		WMA_LOGE("%s: excess wmi buffer: ndp_cfg_len %d",
+			 __func__, fixed_params->nan_scid_len);
+		return -EINVAL;
 	}
 
 	ind_event = vos_mem_malloc(sizeof(*ind_event));
