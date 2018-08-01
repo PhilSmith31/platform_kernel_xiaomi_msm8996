@@ -2266,6 +2266,146 @@ tSirRetStatus sirvalidateandrectifyies(tpAniSirGlobal pMac,
     return eHAL_STATUS_SUCCESS;
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * sir_copy_hs20_ie() - Update HS 2.0 Information Element.
+ * @dest: dest HS IE buffer to be updated
+ * @src: src HS IE buffer
+ *
+ * Update HS2.0 IE info from src to dest
+ *
+ * Return: void
+ */
+void sir_copy_hs20_ie(tDot11fIEhs20vendor_ie *dest, tDot11fIEhs20vendor_ie *src)
+{
+	if (src->present) {
+		adf_os_mem_copy(dest,
+				src,
+				sizeof(tDot11fIEhs20vendor_ie) -
+					sizeof(src->hs_id));
+
+		if (src->hs_id_present)
+			adf_os_mem_copy(&dest->hs_id,
+					&src->hs_id,
+					sizeof(src->hs_id));
+	}
+}
+
+#ifdef WLAN_FEATURE_FILS_SK
+void populate_dot11f_fils_params(tpAniSirGlobal mac_ctx,
+        tDot11fAssocRequest *frm,
+        tpPESession pe_session)
+{
+    struct pe_fils_session *fils_info = pe_session->fils_info;
+
+    /* Populate RSN IE with FILS AKM */
+    PopulateDot11fRSNOpaque(mac_ctx, &(pe_session->pLimJoinReq->rsnIE),
+                                &frm->RSNOpaque);
+
+    /* Populate FILS session IE */
+    frm->fils_session.present = true;
+    vos_mem_copy(frm->fils_session.session,
+             fils_info->fils_session, FILS_SESSION_LENGTH);
+
+    /* Populate FILS Key confirmation IE */
+    if (fils_info->key_auth_len) {
+        frm->fils_key_confirmation.present = true;
+        frm->fils_key_confirmation.num_key_auth =
+                        fils_info->key_auth_len;
+
+        vos_mem_copy(frm->fils_key_confirmation.key_auth,
+                 fils_info->key_auth, fils_info->key_auth_len);
+    }
+}
+
+/**
+ * update_fils_data: update fils params from beacon/probe response
+ * @fils_ind: pointer to sir_fils_indication
+ * @fils_indication: pointer to tDot11fIEfils_indication
+ *
+ * Return: None
+ */
+static void update_fils_data(struct sir_fils_indication *fils_ind,
+                 tDot11fIEfils_indication *fils_indication)
+{
+    uint8_t *data;
+    uint8_t remaining_data = fils_indication->num_variable_data;
+
+    data = fils_indication->variable_data;
+    fils_ind->is_present = true;
+    fils_ind->is_ip_config_supported =
+            fils_indication->is_ip_config_supported;
+    fils_ind->is_fils_sk_auth_supported =
+            fils_indication->is_fils_sk_auth_supported;
+    fils_ind->is_fils_sk_auth_pfs_supported =
+            fils_indication->is_fils_sk_auth_pfs_supported;
+    fils_ind->is_pk_auth_supported =
+            fils_indication->is_pk_auth_supported;
+    if (fils_indication->is_cache_id_present) {
+        if (remaining_data < SIR_CACHE_IDENTIFIER_LEN) {
+            pe_err("Failed to copy Cache Identifier, Invalid remaining data %d",
+                remaining_data);
+            return;
+        }
+        fils_ind->cache_identifier.is_present = true;
+        vos_mem_copy(fils_ind->cache_identifier.identifier,
+                data, SIR_CACHE_IDENTIFIER_LEN);
+        data = data + SIR_CACHE_IDENTIFIER_LEN;
+        remaining_data = remaining_data - SIR_CACHE_IDENTIFIER_LEN;
+    }
+    if (fils_indication->is_hessid_present) {
+        if (remaining_data < SIR_HESSID_LEN) {
+            pe_err("Failed to copy HESSID, Invalid remaining data %d",
+                remaining_data);
+            return;
+        }
+        fils_ind->hessid.is_present = true;
+        vos_mem_copy(fils_ind->hessid.hessid,
+                data, SIR_HESSID_LEN);
+        data = data + SIR_HESSID_LEN;
+        remaining_data = remaining_data - SIR_HESSID_LEN;
+    }
+    if (fils_indication->realm_identifiers_cnt) {
+        if (remaining_data < (fils_indication->realm_identifiers_cnt *
+            SIR_REALM_LEN)) {
+            pe_err("Failed to copy Realm Identifier, Invalid remaining data %d realm_cnt %d",
+                remaining_data, fils_indication->realm_identifiers_cnt);
+            return;
+        }
+        fils_ind->realm_identifier.is_present = true;
+        fils_ind->realm_identifier.realm_cnt =
+            fils_indication->realm_identifiers_cnt;
+        vos_mem_copy(fils_ind->realm_identifier.realm,
+            data, fils_ind->realm_identifier.realm_cnt *
+                    SIR_REALM_LEN);
+    }
+}
+
+/**
+ * sir_convert_fils_data_to_probersp_struct: update fils params from probe resp
+ * @probe_resp: pointer to tpSirProbeRespBeacon
+ * @pr: pointer to tDot11fProbeResponse
+ *
+ * Return: None
+ */
+static void
+sir_convert_fils_data_to_probersp_struct(tpSirProbeRespBeacon probe_resp,
+            tDot11fProbeResponse *pr)
+{
+    if (!pr->fils_indication.present)
+        return;
+
+    update_fils_data(&probe_resp->fils_ind, &pr->fils_indication);
+}
+#else
+static inline void
+sir_convert_fils_data_to_probersp_struct(tpSirProbeRespBeacon probe_resp,
+        tDot11fProbeResponse *pr)
+{
+}
+#endif
+>>>>>>> 8c91fc67bcce... qcacld-2.0: Add sanity check variable_data len in update_fils_data
 tSirRetStatus sirConvertProbeFrame2Struct(tpAniSirGlobal       pMac,
                                           tANI_U8             *pFrame,
                                           tANI_U32             nFrame,
