@@ -5063,7 +5063,7 @@ static inline unsigned long boosted_task_util(struct task_struct *task);
 static inline int
 find_min_capacity(struct energy_env *eenv)
 {
-	const struct sched_group_energy const *sge = eenv->sg->sge;
+	const struct sched_group_energy *sge = eenv->sg->sge;
 	unsigned long min_capacity, cur_capacity;
 	int min_cap_idx, cap_idx;
 	unsigned long min_util;
@@ -5098,7 +5098,7 @@ find_min_capacity(struct energy_env *eenv)
 
 static int find_new_capacity(struct energy_env *eenv)
 {
-	const struct sched_group_energy const *sge = eenv->sg->sge;
+	const struct sched_group_energy *sge = eenv->sg->sge;
 	unsigned long util = group_max_util(eenv);
 	int idx;
 
