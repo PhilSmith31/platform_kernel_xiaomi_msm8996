@@ -32,7 +32,7 @@ KERNELDIR=$(readlink -f .);
 # Some variables
 VER=B--B-Kernel
 export LOCALVERSION=~`echo $VER`
-export KBUILD_BUILD_USER=B--B
+export KBUILD_BUILD_USER=phil
 export KBUILD_BUILD_HOST=JDCTeam
 
 CLEANUP()
@@ -116,7 +116,8 @@ BUILD_NOW()
 	fi;
 
 	# build Image
-	time make ARCH=arm64 CROSS_COMPILE=android-toolchain-arm64/bin/arm-eabi- -j $NR_CPUS
+	# time make ARCH=arm64 CROSS_COMPILE=android-toolchain-arm64/bin/arm-eabi- -j $NR_CPUS
+	time make ARCH=arm64 CROSS_COMPILE=gcc-linaro-7.3.1/bin/aarch64-linux-gnu- -j $NR_CPUS
 
 	cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm64/configs/"$KERNEL_CONFIG_FILE";
 
@@ -124,7 +125,7 @@ BUILD_NOW()
 
 	# compile the modules, and depmod to create the final Image
 	echo "Compiling Modules............"
-	time make ARCH=arm64 CROSS_COMPILE=android-toolchain-arm64/bin/arm-eabi- modules -j ${NR_CPUS} || exit 1
+	time make ARCH=arm64 CROSS_COMPILE=gcc-linaro-7.3.1/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} || exit 1
 
 	# move the compiled Image and modules into the B--B working directory
 	echo "Move compiled objects........"
@@ -157,8 +158,8 @@ BUILD_NOW()
 		cp .config B--B/view_only_config
 
 		# strip not needed debugs from modules.
-		android-toolchain-arm64/bin/arm-eabi-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
-		android-toolchain-arm64/bin/arm-eabi-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
+		gcc-linaro-7.3.1/bin/aarch64-linux-gnu-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
+		gcc-linaro-7.3.1/bin/aarch64-linux-gnu-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
 
 		# create the Ramdisk and move it to the output working directory
 		echo "Create Ramdisk..............."
