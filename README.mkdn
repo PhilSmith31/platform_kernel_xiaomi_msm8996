@@ -48,3 +48,6 @@ FEATURES:
     * Disabled some unuseful debugging
     * Wakelocks: various optimizations
     * A lot of things i don't remember :)
+    
+    And more changes from here on by PhilSmith31.
+    You can read them in the xda ROM thread.
