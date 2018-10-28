@@ -54,6 +54,108 @@ EXPORT_SYMBOL(empty_zero_page);
 
 static bool __init dma_overlap(phys_addr_t start, phys_addr_t end);
 
+#ifdef CONFIG_STRICT_MEMORY_RWX
+static struct {
+	pmd_t *pmd;
+	pte_t *pte;
+	pmd_t saved_pmd;
+	pte_t saved_pte;
+	bool made_writeable;
+} mem_unprotect;
+
+static DEFINE_SPINLOCK(mem_text_writeable_lock);
+
+void mem_text_writeable_spinlock(unsigned long *flags)
+{
+	spin_lock_irqsave(&mem_text_writeable_lock, *flags);
+}
+
+void mem_text_writeable_spinunlock(unsigned long *flags)
+{
+	spin_unlock_irqrestore(&mem_text_writeable_lock, *flags);
+}
+
+/*
+ * mem_text_address_writeable() and mem_text_address_restore()
+ * should be called as a pair. They are used to make the
+ * specified address in the kernel text section temporarily writeable
+ * when it has been marked read-only by STRICT_MEMORY_RWX.
+ * Used by kprobes and other debugging tools to set breakpoints etc.
+ * mem_text_address_writeable() is invoked before writing.
+ * After the write, mem_text_address_restore() must be called
+ * to restore the original state.
+ * This is only effective when used on the kernel text section
+ * marked as PMD_SECT_RDONLY by get_pmd_prot_sect_kernel()
+ *
+ * They must each be called with mem_text_writeable_lock locked
+ * by the caller, with no unlocking between the calls.
+ * The caller should release mem_text_writeable_lock immediately
+ * after the call to mem_text_address_restore().
+ * Only the write and associated cache operations should be performed
+ * between the calls.
+ */
+
+/* this function must be called with mem_text_writeable_lock held */
+void mem_text_address_writeable(u64 addr)
+{
+	pgd_t *pgd = pgd_offset_k(addr);
+	pud_t *pud = pud_offset(pgd, addr);
+	u64 addr_aligned;
+
+	mem_unprotect.made_writeable = 0;
+
+	if ((addr < (u64)_stext) || (addr >= (u64)__start_rodata))
+		return;
+
+	mem_unprotect.pmd = pmd_offset(pud, addr);
+	addr_aligned = addr & PAGE_MASK;
+	mem_unprotect.saved_pmd = *mem_unprotect.pmd;
+	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+		set_pmd(mem_unprotect.pmd,
+			__pmd(__pa(addr_aligned) | prot_sect_kernel));
+	} else {
+		mem_unprotect.pte = pte_offset_kernel(mem_unprotect.pmd, addr);
+		mem_unprotect.saved_pte = *mem_unprotect.pte;
+		set_pte(mem_unprotect.pte, pfn_pte(__pa(addr) >> PAGE_SHIFT,
+						   PAGE_KERNEL_EXEC));
+	}
+	flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
+
+	mem_unprotect.made_writeable = 1;
+}
+
+/* this function must be called with mem_text_writeable_lock held */
+void mem_text_address_restore(u64 addr)
+{
+	if (mem_unprotect.made_writeable) {
+		if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) == PMD_TYPE_SECT)
+			*mem_unprotect.pmd = mem_unprotect.saved_pmd;
+		else
+			*mem_unprotect.pte = mem_unprotect.saved_pte;
+		flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
+	}
+}
+#else
+static inline void mem_text_writeable_spinlock(unsigned long *flags) {};
+static inline void mem_text_address_writeable(u64 addr) {};
+static inline void mem_text_address_restore(u64 addr) {};
+static inline void mem_text_writeable_spinunlock(unsigned long *flags) {};
+#endif
+
+void mem_text_write_kernel_word(u32 *addr, u32 word)
+{
+	unsigned long flags;
+
+	mem_text_writeable_spinlock(&flags);
+	mem_text_address_writeable((u64)addr);
+	*addr = word;
+	flush_icache_range((unsigned long)addr,
+			   ((unsigned long)addr + sizeof(long)));
+	mem_text_address_restore((u64)addr);
+	mem_text_writeable_spinunlock(&flags);
+}
+EXPORT_SYMBOL(mem_text_write_kernel_word);
+
 pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 			      unsigned long size, pgprot_t vma_prot)
 {
@@ -582,6 +684,51 @@ void fixup_init(void)
 			PAGE_KERNEL);
 }
 
+#ifdef CONFIG_UNMAP_KERNEL_AT_EL0
+static void __init *pgd_pgtable_alloc(unsigned long size)
+{
+	void *ptr;
+	BUG_ON(size != PAGE_SIZE);
+
+	ptr = (void *)__get_free_page(PGALLOC_GFP);
+	if (!ptr || !pgtable_page_ctor(virt_to_page(ptr)))
+		BUG();
+
+	/* Ensure the zeroed page is visible to the page table walker */
+	dsb(ishst);
+	return ptr;
+}
+
+static int __init map_entry_trampoline(void)
+{
+	extern char __entry_tramp_text_start[];
+
+	pgprot_t prot = PAGE_KERNEL_EXEC;
+	phys_addr_t pa_start = __pa_symbol(__entry_tramp_text_start);
+
+	/* The trampoline is always mapped and can therefore be global */
+	pgprot_val(prot) &= ~PTE_NG;
+
+	/* Map only the text into the trampoline page table */
+	memset(tramp_pg_dir, 0, PTRS_PER_PGD * sizeof(pgd_t));
+	__create_mapping(NULL, tramp_pg_dir + pgd_index(TRAMP_VALIAS), pa_start,
+		TRAMP_VALIAS, PAGE_SIZE, prot, pgd_pgtable_alloc, false);
+
+	/* Map both the text and data into the kernel page table */
+	__set_fixmap(FIX_ENTRY_TRAMP_TEXT, pa_start, prot);
+	if (IS_ENABLED(CONFIG_RANDOMIZE_BASE)) {
+		extern char __entry_tramp_data_start[];
+
+		__set_fixmap(FIX_ENTRY_TRAMP_DATA,
+			     __pa_symbol(__entry_tramp_data_start),
+			     PAGE_KERNEL_RO);
+	}
+
+	return 0;
+}
+core_initcall(map_entry_trampoline);
+#endif
+
 /*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps and sets up the zero page.
@@ -600,9 +747,20 @@ void __init paging_init(void)
 	 * point to zero page to avoid speculatively fetching new entries.
 	 */
 	cpu_set_reserved_ttbr0();
+	local_flush_tlb_all();
 	set_kernel_text_ro();
 	local_flush_tlb_all();
 	cpu_set_default_tcr_t0sz();
+}
+
+/*
+ * Enable the identity mapping to allow the MMU disabling.
+ */
+void setup_mm_for_reboot(void)
+{
+	cpu_set_reserved_ttbr0();
+	flush_tlb_all();
+	cpu_switch_mm(idmap_pg_dir, &init_mm);
 }
 
 /*

@@ -333,39 +333,8 @@ struct binder_ref {
 };
 
 enum binder_deferred_state {
-	BINDER_DEFERRED_PUT_FILES    = 0x01,
-	BINDER_DEFERRED_FLUSH        = 0x02,
-	BINDER_DEFERRED_RELEASE      = 0x04,
-	BINDER_ZOMBIE_CLEANUP        = 0x08,
-};
-
-struct binder_seq_head {
-	int active_count;
-	int max_active_count;
-	spinlock_t lock;
-	struct list_head active_threads;
-	u64 lowest_seq;
-};
-
-#define SEQ_BUCKETS 16
-struct binder_seq_head binder_active_threads[SEQ_BUCKETS];
-struct binder_seq_head zombie_procs;
-
-static inline int binder_seq_hash(struct binder_thread *thread)
-{
-	u64 tp = (u64)thread;
-
-	return ((tp>>8) ^ (tp>>12)) % SEQ_BUCKETS;
-}
-
-struct binder_seq_node {
-	struct list_head list_node;
-	u64 active_seq;
-};
-
-struct binder_priority {
-	unsigned int sched_policy;
-	int prio; /* [100..139] for SCHED_NORMAL, [0..99] for FIFO/RT */
+	BINDER_DEFERRED_FLUSH        = 0x01,
+	BINDER_DEFERRED_RELEASE      = 0x02,
 };
 
 struct binder_proc {
@@ -378,8 +347,6 @@ struct binder_proc {
 	int pid;
 	int active_thread_count;
 	struct task_struct *tsk;
-	struct files_struct *files;
-	struct files_struct *zombie_files;
 	struct hlist_node deferred_work_node;
 	int deferred_work;
 	spinlock_t proc_lock;
@@ -558,22 +525,34 @@ static inline void binder_queue_for_zombie_cleanup(struct binder_proc *proc);
 static void binder_put_thread(struct binder_thread *thread);
 static struct binder_thread *binder_get_thread(struct binder_proc *proc);
 
+struct files_struct *binder_get_files_struct(struct binder_proc *proc)
+{
+	return get_files_struct(proc->tsk);
+}
+
 static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 {
-	struct files_struct *files = proc->files;
+	struct files_struct *files;
 	unsigned long rlim_cur;
 	unsigned long irqs;
+	int ret;
 
+	files = binder_get_files_struct(proc);
 	if (files == NULL)
 		return -ESRCH;
 
-	if (!lock_task_sighand(proc->tsk, &irqs))
-		return -EMFILE;
+	if (!lock_task_sighand(proc->tsk, &irqs)) {
+		ret = -EMFILE;
+		goto err;
+	}
 
 	rlim_cur = task_rlimit(proc->tsk, RLIMIT_NOFILE);
 	unlock_task_sighand(proc->tsk, &irqs);
 
-	return __alloc_fd(files, 0, rlim_cur, flags);
+	ret = __alloc_fd(files, 0, rlim_cur, flags);
+err:
+	put_files_struct(files);
+	return ret;
 }
 
 /*
@@ -582,8 +561,12 @@ static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 static void task_fd_install(
 	struct binder_proc *proc, unsigned int fd, struct file *file)
 {
-	if (proc->files)
-		__fd_install(proc->files, fd, file);
+	struct files_struct *files = binder_get_files_struct(proc);
+
+	if (files) {
+		__fd_install(files, fd, file);
+		put_files_struct(files);
+	}
 }
 
 /*
@@ -591,18 +574,20 @@ static void task_fd_install(
  */
 static long task_close_fd(struct binder_proc *proc, unsigned int fd)
 {
+	struct files_struct *files = binder_get_files_struct(proc);
 	int retval;
 
-	if (proc->files == NULL)
+	if (files == NULL)
 		return -ESRCH;
 
-	retval = __close_fd(proc->files, fd);
+	retval = __close_fd(files, fd);
 	/* can't restart close syscall because file table entry was cleared */
 	if (unlikely(retval == -ERESTARTSYS ||
 		     retval == -ERESTARTNOINTR ||
 		     retval == -ERESTARTNOHAND ||
 		     retval == -ERESTART_RESTARTBLOCK))
 		retval = -EINTR;
+	put_files_struct(files);
 
 	return retval;
 }
@@ -4049,8 +4034,8 @@ static void binder_vma_close(struct vm_area_struct *vma)
 		     proc->pid, vma->vm_start, vma->vm_end,
 		     (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags,
 		     (unsigned long)pgprot_val(vma->vm_page_prot));
-	binder_alloc_vma_close(&proc->alloc);
-	binder_defer_work(proc, BINDER_DEFERRED_PUT_FILES);
+	proc->vma = NULL;
+	proc->vma_vm_mm = NULL;
 }
 
 static int binder_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
@@ -4091,12 +4076,24 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_ops = &binder_vm_ops;
 	vma->vm_private_data = proc;
 
-	ret = binder_alloc_mmap_handler(&proc->alloc, vma);
-
-	if (!ret) {
-		proc->files = get_files_struct(current);
-		return 0;
+	if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
+		ret = -ENOMEM;
+		failure_string = "alloc small buf";
+		goto err_alloc_small_buf_failed;
 	}
+	buffer = proc->buffer;
+	INIT_LIST_HEAD(&proc->buffers);
+	list_add(&buffer->entry, &proc->buffers);
+	buffer->free = 1;
+	binder_insert_free_buffer(proc, buffer);
+	proc->free_async_space = proc->buffer_size / 2;
+	barrier();
+	proc->vma = vma;
+	proc->vma_vm_mm = vma->vm_mm;
+
+	/*pr_info("binder_mmap: %d %lx-%lx maps %pK\n",
+		 proc->pid, vma->vm_start, vma->vm_end, proc->buffer);*/
+	return 0;
 
 err_bad_arg:
 	pr_err("binder_mmap: %d %lx-%lx %s failed %d\n",
@@ -4323,7 +4320,7 @@ static void binder_deferred_release(struct binder_proc *proc)
 	struct rb_node *n;
 	int threads, nodes, incoming_refs, outgoing_refs, active_transactions;
 
-	BUG_ON(proc->files);
+	BUG_ON(proc->vma);
 
 	binder_proc_lock(proc, __LINE__);
 	binder_queue_for_zombie_cleanup(proc);
@@ -4555,26 +4552,13 @@ static void binder_deferred_func(struct work_struct *work)
 		}
 		mutex_unlock(&binder_deferred_lock);
 
-		if (defer & BINDER_DEFERRED_PUT_FILES) {
-			binder_proc_lock(proc, __LINE__);
-			if (proc->files) {
-				BUG_ON(proc->zombie_files);
-				proc->zombie_files = proc->files;
-				proc->files = NULL;
-				binder_queue_for_zombie_cleanup(proc);
-				defer |= BINDER_ZOMBIE_CLEANUP;
-			}
-			binder_proc_unlock(proc, __LINE__);
-		}
-
 		if (defer & BINDER_DEFERRED_FLUSH)
 			binder_deferred_flush(proc);
 
 		if (defer & BINDER_DEFERRED_RELEASE)
 			binder_deferred_release(proc); /* frees proc */
 
-		if (defer & BINDER_ZOMBIE_CLEANUP)
-			binder_clear_zombies();
+		binder_unlock(__func__);
 	} while (proc);
 
 }

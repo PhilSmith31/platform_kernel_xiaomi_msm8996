@@ -2460,13 +2460,12 @@ static int fwu_get_image_firmware_id(unsigned int *fw_id)
 			return -ENOMEM;
 		}
 
-		max_index = min((ptrdiff_t)(MAX_FIRMWARE_ID_LEN - 1),
-				&fwu->image_name[MAX_IMAGE_NAME_LEN] - strptr);
-		index = 0;
-		while (index < max_index && isdigit(strptr[index])) {
+		while ((index < MAX_FIRMWARE_ID_LEN - 1) && strptr[index] >= '0'
+						&& strptr[index] <= '9') {
 			firmware_id[index] = strptr[index];
 			index++;
 		}
+		firmware_id[index] = '\0';
 
 		retval = sstrtoul(firmware_id, 10, (unsigned long *)fw_id);
 		kfree(firmware_id);

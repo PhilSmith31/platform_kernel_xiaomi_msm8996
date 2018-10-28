@@ -147,51 +147,6 @@ static int c_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static void *c_start(struct seq_file *m, loff_t *pos)
-{
-	return *pos < 1 ? (void *)1 : NULL;
-}
-
-static void *c_next(struct seq_file *m, void *v, loff_t *pos)
-{
-	++*pos;
-	return NULL;
-}
-
-static void c_stop(struct seq_file *m, void *v)
-{
-}
-
-const struct seq_operations cpuinfo_op = {
-	.start	= c_start,
-	.next	= c_next,
-	.stop	= c_stop,
-	.show	= c_show
-};
-
-static void cpuinfo_detect_icache_policy(struct cpuinfo_arm64 *info)
-{
-	unsigned int cpu = smp_processor_id();
-	u32 l1ip = CTR_L1IP(info->reg_ctr);
-
-	if (l1ip != ICACHE_POLICY_PIPT) {
-		/*
-		 * VIPT caches are non-aliasing if the VA always equals the PA
-		 * in all bit positions that are covered by the index. This is
-		 * the case if the size of a way (# of sets * line size) does
-		 * not exceed PAGE_SIZE.
-		 */
-		u32 waysize = icache_get_numsets() * icache_get_linesize();
-
-		if (l1ip != ICACHE_POLICY_VIPT || waysize > PAGE_SIZE)
-			set_bit(ICACHEF_ALIASING, &__icache_flags);
-	}
-	if (l1ip == ICACHE_POLICY_AIVIVT)
-		set_bit(ICACHEF_AIVIVT, &__icache_flags);
-
-	pr_debug("Detected %s I-cache on CPU%d\n", icache_policy_str[l1ip], cpu);
-}
-
 static void __cpuinfo_store_cpu(struct cpuinfo_arm64 *info)
 {
 	info->reg_cntfrq = arch_timer_get_cntfrq();
@@ -203,12 +158,7 @@ static void __cpuinfo_store_cpu(struct cpuinfo_arm64 *info)
 	info->reg_id_aa64dfr1 = read_cpuid(SYS_ID_AA64DFR1_EL1);
 	info->reg_id_aa64isar0 = read_cpuid(SYS_ID_AA64ISAR0_EL1);
 	info->reg_id_aa64isar1 = read_cpuid(SYS_ID_AA64ISAR1_EL1);
-	/*
-	 * Explicitly mask out 16KB granule since we donot
-	 * want to support it
-	 */
-	info->reg_id_aa64mmfr0 = read_cpuid(SYS_ID_AA64MMFR0_EL1) &
-					(~MMFR0_EL1_16KGRAN_MASK);
+	info->reg_id_aa64mmfr0 = read_cpuid(SYS_ID_AA64MMFR0_EL1);
 	info->reg_id_aa64mmfr1 = read_cpuid(SYS_ID_AA64MMFR1_EL1);
 	info->reg_id_aa64mmfr2 = read_cpuid(SYS_ID_AA64MMFR2_EL1);
 	info->reg_id_aa64pfr0 = read_cpuid(SYS_ID_AA64PFR0_EL1);

@@ -77,6 +77,9 @@ void __init early_init_dt_setup_hwversion_arch(unsigned long hw_version)
 }
 #endif
 
+unsigned int processor_id;
+EXPORT_SYMBOL(processor_id);
+
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);
 
@@ -207,6 +210,13 @@ static void __init smp_build_mpidr_hash(void)
 	if (mpidr_hash_size() > 4 * num_possible_cpus())
 		pr_warn("Large number of MPIDR hash buckets detected\n");
 	__flush_dcache_area(&mpidr_hash, sizeof(struct mpidr_hash));
+}
+
+static void __init setup_processor(void)
+{
+	pr_info("Boot CPU: AArch64 Processor [%08x]\n", read_cpuid_id());
+	sprintf(init_utsname()->machine, ELF_PLATFORM);
+	cpuinfo_store_boot_cpu();
 }
 
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
@@ -406,7 +416,6 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 	init_random_pool();
-
 	if (boot_args[1] || boot_args[2] || boot_args[3]) {
 		pr_err("WARNING: x1-x3 nonzero in violation of boot protocol:\n"
 			"\tx1: %016llx\n\tx2: %016llx\n\tx3: %016llx\n"
