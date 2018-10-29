@@ -33,7 +33,7 @@ KERNELDIR=$(readlink -f .);
 VER=B--B-Kernel
 export LOCALVERSION=~`echo $VER`
 export KBUILD_BUILD_USER=phil
-export KBUILD_BUILD_HOST=JDCTeam
+export KBUILD_BUILD_HOST=JDCNRescueParty
 
 CLEANUP()
 {

@@ -391,17 +391,6 @@ static void uao_thread_switch(struct task_struct *next)
 	}
 }
 
-/* Restore the UAO state depending on next's addr_limit */
-static void uao_thread_switch(struct task_struct *next)
-{
-	if (IS_ENABLED(CONFIG_ARM64_UAO)) {
-		if (task_thread_info(next)->addr_limit == KERNEL_DS)
-			asm(ALTERNATIVE("nop", SET_PSTATE_UAO(1), ARM64_HAS_UAO));
-		else
-			asm(ALTERNATIVE("nop", SET_PSTATE_UAO(0), ARM64_HAS_UAO));
-	}
-}
-
 /*
  * Thread switching.
  */

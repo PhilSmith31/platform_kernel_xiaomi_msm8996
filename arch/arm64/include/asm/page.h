@@ -31,6 +31,9 @@
 #define PAGE_SIZE		(_AC(1, UL) << PAGE_SHIFT)
 #define PAGE_MASK		(~(PAGE_SIZE-1))
 
+#define CONT_SIZE		(_AC(1, UL) << (CONT_SHIFT + PAGE_SHIFT))
+#define CONT_MASK		(~(CONT_SIZE-1))
+
 #ifndef __ASSEMBLY__
 
 #include <asm/pgtable-types.h>

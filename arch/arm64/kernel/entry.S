@@ -236,18 +236,6 @@ alternative_else_nop_endif
 	tst	x22, #PSR_MODE32_BIT		// native task?
 	b.eq	3f
 
-	uaccess_ttbr0_enable x0
-
-1:
-	.if	\el != 0
-	and	x22, x22, #~PSR_PAN_BIT		// ARMv8.0 CPUs do not understand this bit
-	.endif
-2:
-#endif
-
-	.if	\el == 0
-	ldr	x23, [sp, #S_SP]		// load return stack pointer
-	msr	sp_el0, x23
 #ifdef CONFIG_ARM64_ERRATUM_845719
 alternative_if ARM64_WORKAROUND_845719
 #ifdef CONFIG_PID_IN_CONTEXTIDR
