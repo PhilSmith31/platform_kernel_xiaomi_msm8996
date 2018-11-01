@@ -16,7 +16,10 @@
 
 #include <linux/linkage.h>
 
+#include <asm/assembler.h>
 #include <asm/cache.h>
+#include <asm/cpufeature.h>
+#include <asm/sysreg.h>
 #include <asm/uaccess.h>
 
 /*
@@ -63,10 +66,10 @@
 
 end	.req	x5
 ENTRY(__arch_copy_to_user)
-	uaccess_enable_not_uao x3, x4, x5
+	uaccess_enable_not_uao x3, x4
 	add	end, x0, x2
 #include "copy_template.S"
-	uaccess_disable_not_uao x3, x4
+	uaccess_disable_not_uao x3
 	mov	x0, #0
 	ret
 ENDPROC(__arch_copy_to_user)

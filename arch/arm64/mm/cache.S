@@ -25,7 +25,7 @@
 #include <asm/alternative.h>
 #include <asm/uaccess.h>
 
-/*
+ /*
  *     flush_dcache_louis()
  *
  *     Flush the D-cache up to the Level of Unification Inner Shareable
@@ -132,8 +132,6 @@ ENTRY(flush_cache_all)
 	ret	x12
 ENDPROC(flush_cache_all)
 
-
-
 /*
  *	flush_icache_range(start,end)
  *
@@ -158,7 +156,7 @@ ENTRY(flush_icache_range)
  *	- end     - virtual end address of region
  */
 ENTRY(__flush_cache_user_range)
-	uaccess_ttbr0_enable x2, x3, x4
+	uaccess_enable_not_uao x2, x3
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	bic	x4, x0, x3
@@ -180,7 +178,7 @@ USER(9f, ic	ivau, x4	)		// invalidate I line PoU
 9:						// ignore any faulting cache operation
 	dsb	ish
 	isb
-	uaccess_ttbr0_disable x1, x2
+	uaccess_disable_not_uao x1
 	ret
 ENDPROC(flush_icache_range)
 ENDPROC(__flush_cache_user_range)
@@ -269,6 +267,7 @@ ENDPROC(__dma_clean_range)
  *	- end     - virtual end address of region
  */
 ENTRY(__dma_flush_range)
+	uaccess_enable_not_uao x2, x3
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	bic	x0, x0, x3
@@ -277,6 +276,7 @@ ENTRY(__dma_flush_range)
 	cmp	x0, x1
 	b.lo	1b
 	dsb	sy
+	uaccess_disable_not_uao x1
 	ret
 ENDPIPROC(__dma_flush_range)
 

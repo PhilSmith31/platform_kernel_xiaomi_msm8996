@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/sysctl.h>
 
+#include <asm/alternative.h>
 #include <asm/cpufeature.h>
 #include <asm/insn.h>
 #include <asm/opcodes.h>

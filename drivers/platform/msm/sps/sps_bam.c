@@ -286,9 +286,6 @@ int sps_bam_enable(struct sps_bam *dev)
 		return SPS_ERROR;
 	}
 
-	if (dev->props.options & SPS_BAM_OPT_IRQ_NO_SUSPEND)
-		irq_arg = IRQF_NO_SUSPEND;
-
 	/* Set interrupt handling */
 	if ((dev->props.options & SPS_BAM_OPT_IRQ_DISABLED) != 0 ||
 	    dev->props.irq == SPS_IRQ_INVALID) {

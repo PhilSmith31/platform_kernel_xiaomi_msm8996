@@ -256,7 +256,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 		mm_flags |= FAULT_FLAG_WRITE;
 	}
 
-	if (is_permission_fault(esr, regs) && (addr < USER_DS)) {
+	if (addr < USER_DS && is_permission_fault(esr, regs)) {
 		/* regs->orig_addr_limit may be 0 if we entered from EL0 */
 		if (regs->orig_addr_limit == KERNEL_DS)
 			die("Accessing user space memory with fs=KERNEL_DS", regs, esr);
@@ -265,7 +265,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 			die("Attempting to execute userspace memory", regs, esr);
 
 		if (!search_exception_tables(regs->pc))
-			panic("Accessing user space memory outside uaccess.h routines");
+			panic("Accessing user space memory (0x%016lx) outside uaccess.h routines", addr);
 	}
 
 	/*
@@ -517,22 +517,6 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 	info.si_code  = inf->code;
 	info.si_addr  = (void __user *)addr;
 	arm64_notify_die("", regs, &info, esr);
-}
-
-asmlinkage void __exception do_el0_ia_bp_hardening(unsigned long addr,
-						   unsigned int esr,
-						   struct pt_regs *regs)
-{
-	/*
-	 * We've taken an instruction abort from userspace and not yet
-	 * re-enabled IRQs. If the address is a kernel address, apply
-	 * BP hardening prior to enabling IRQs and pre-emption.
-	 */
-	if (addr > TASK_SIZE)
-		arm64_apply_bp_hardening();
-
-	local_irq_enable();
-	do_mem_abort(addr, esr, regs);
 }
 
 /*

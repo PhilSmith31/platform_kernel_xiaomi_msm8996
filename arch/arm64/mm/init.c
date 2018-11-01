@@ -68,7 +68,7 @@ early_param("initrd", early_initrd);
  * currently assumes that for memory starting above 4G, 32-bit devices will
  * use a DMA offset.
  */
-static phys_addr_t __init max_zone_dma_phys(void)
+static phys_addr_t max_zone_dma_phys(void)
 {
 	phys_addr_t offset = memblock_start_of_DRAM() & GENMASK_ULL(63, 32);
 	return min(offset + (1ULL << 32), memblock_end_of_DRAM());
@@ -126,11 +126,11 @@ EXPORT_SYMBOL(pfn_valid);
 #endif
 
 #ifndef CONFIG_SPARSEMEM
-static void __init arm64_memory_present(void)
+static void arm64_memory_present(void)
 {
 }
 #else
-static void __init arm64_memory_present(void)
+static void arm64_memory_present(void)
 {
 	struct memblock_region *reg;
 
@@ -139,25 +139,6 @@ static void __init arm64_memory_present(void)
 			       memblock_region_memory_end_pfn(reg));
 }
 #endif
-
-/*
- * Limit the memory size that was specified via FDT.
- */
-static int __init early_mem(char *p)
-{
-	phys_addr_t limit;
-
-	if (!p)
-		return 1;
-
-	limit = memparse(p, &p) & PAGE_MASK;
-	pr_notice("Memory limited to %lldMB\n", limit >> 20);
-
-	memblock_enforce_memory_limit(limit);
-
-	return 0;
-}
-early_param("mem", early_mem);
 
 void __init arm64_memblock_init(void)
 {
@@ -347,14 +328,8 @@ void __init mem_init(void)
 	}
 }
 
-static inline void poison_init_mem(void *s, size_t count)
-{
-	memset(s, 0, count);
-}
-
 void free_initmem(void)
 {
-	fixup_init();
 	free_initmem_default(0);
 	free_alternatives_memory();
 }
@@ -376,17 +351,4 @@ static int __init keepinitrd_setup(char *__unused)
 }
 
 __setup("keepinitrd", keepinitrd_setup);
-#endif
-
-#ifdef CONFIG_KERNEL_TEXT_RDONLY
-void set_kernel_text_ro(void)
-{
-	unsigned long start = PFN_ALIGN(_stext);
-	unsigned long end = PFN_ALIGN(_etext);
-
-	/*
-	 * Set the kernel identity mapping for text RO.
-	 */
-	set_memory_ro(start, (end - start) >> PAGE_SHIFT);
-}
 #endif

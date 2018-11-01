@@ -77,14 +77,14 @@ void __init early_init_dt_setup_hwversion_arch(unsigned long hw_version)
 }
 #endif
 
-char* (*arch_read_hardware_id)(void);
-EXPORT_SYMBOL(arch_read_hardware_id);
-
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);
 
 unsigned int cold_boot;
 EXPORT_SYMBOL(cold_boot);
+
+char* (*arch_read_hardware_id)(void);
+EXPORT_SYMBOL(arch_read_hardware_id);
 
 static const char *machine_name;
 phys_addr_t __fdt_pointer __initdata;
@@ -228,6 +228,25 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 		pr_info("Machine: %s\n", machine_name);
 	}
 }
+
+/*
+ * Limit the memory size that was specified via FDT.
+ */
+static int __init early_mem(char *p)
+{
+	phys_addr_t limit;
+
+	if (!p)
+		return 1;
+
+	limit = memparse(p, &p) & PAGE_MASK;
+	pr_notice("Memory limited to %lldMB\n", limit >> 20);
+
+	memblock_enforce_memory_limit(limit);
+
+	return 0;
+}
+early_param("mem", early_mem);
 
 static void __init request_standard_resources(void)
 {
@@ -387,6 +406,7 @@ void __init setup_arch(char **cmdline_p)
 #endif
 #endif
 	init_random_pool();
+
 	if (boot_args[1] || boot_args[2] || boot_args[3]) {
 		pr_err("WARNING: x1-x3 nonzero in violation of boot protocol:\n"
 			"\tx1: %016llx\n\tx2: %016llx\n\tx3: %016llx\n"
@@ -415,9 +435,3 @@ static int __init topology_init(void)
 	return 0;
 }
 postcore_initcall(topology_init);
-
-void arch_setup_pdev_archdata(struct platform_device *pdev)
-{
-	pdev->archdata.dma_mask = DMA_BIT_MASK(32);
-	pdev->dev.dma_mask = &pdev->archdata.dma_mask;
-}
