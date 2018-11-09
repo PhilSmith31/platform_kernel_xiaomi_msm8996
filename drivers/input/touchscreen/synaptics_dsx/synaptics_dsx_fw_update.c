@@ -2440,7 +2440,7 @@ static int fwu_get_image_firmware_id(unsigned int *fw_id)
 	if (fwu->img.contains_firmware_id) {
 		*fw_id = fwu->img.firmware_id;
 	} else {
-		size_t index, max_index;
+		size_t index;
 		unsigned char *strptr = strnstr(fwu->image_name, "PR", MAX_IMAGE_NAME_LEN);
 
 		if (!strptr) {

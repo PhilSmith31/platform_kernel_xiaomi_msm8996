@@ -730,17 +730,17 @@ int afe_ultrasound_get_calib_data(struct afe_ultrasound_get_calib *calib_resp,
 
 			atomic_set(ptr_elusAprState, ELLIPTIC_DATA_READ_BUSY);
 			pr_debug("[ELUS]: %d %d %d %d\ninterrupted wait sig[0:1] = 0x%08x 0x%08x\n",
-				 (unsigned int)current->pending.signal.sig[0],
-				 (unsigned int)current->pending.signal.sig[1],
 				 calib_resp->res_cfg.payload[0],
 				 calib_resp->res_cfg.payload[1],
 				 calib_resp->res_cfg.payload[2],
-				 calib_resp->res_cfg.payload[3]);
+				 calib_resp->res_cfg.payload[3],
+				 (unsigned int)current->pending.signal.sig[0],
+				 (unsigned int)current->pending.signal.sig[0]);	// sig[1] above array bounds
 		} else if (-ERESTARTSYS == ret) {
 			/* Interrupted */
 			pr_debug("[ELUS] interrupted wait sig[0:1] = 0x%08x 0x%08x #%d\n",
 				 (unsigned int)current->pending.signal.sig[0],
-				 (unsigned int)current->pending.signal.sig[1],
+				 (unsigned int)current->pending.signal.sig[0], // sig[1] above array bounds
 				 atomic_read(ptr_elusAprState));
 		} else {
 			pr_debug("[ELUS] wait failed %d\n", ret);
