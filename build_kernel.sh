@@ -32,8 +32,8 @@ KERNELDIR=$(readlink -f .);
 # Some variables
 VER=B--B-Kernel
 export LOCALVERSION=~`echo $VER`
-export KBUILD_BUILD_USER=jw
-export KBUILD_BUILD_HOST=JDCNRescueParty
+export KBUILD_BUILD_USER=phil
+export KBUILD_BUILD_HOST=JDCTeam
 
 CLEANUP()
 {
@@ -116,6 +116,7 @@ BUILD_NOW()
 	fi;
 
 	# build Image
+	# time make ARCH=arm64 CROSS_COMPILE=android-toolchain-arm64/bin/arm-eabi- -j $NR_CPUS
 	time make ARCH=arm64 CROSS_COMPILE=gcc-linaro-7.3.1/bin/aarch64-linux-gnu- -j $NR_CPUS
 
 	cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm64/configs/"$KERNEL_CONFIG_FILE";
