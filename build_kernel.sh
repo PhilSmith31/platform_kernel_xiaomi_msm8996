@@ -9,22 +9,20 @@ LANG=C
 # What you need to make configuration easier by using xconfig
 # qt4-dev, qmake-qt4, pkg-config
 
-# Setting the toolchain
-# the kernel/Makefile CROSS_COMPILE variable to match the download location of the
-# bin/ folder of your toolchain
-# toolchain already axist and set! in kernel git. ../aarch64-linux-android-4.9/bin/
-
 # Structure for building and using this script
 
-#--project/				(progect container folder)
+#--project/						(progect container folder)
 #------Ramdisk-Gemini/			(ramdisk files for boot.img)
 #------Ramdisk-Gemini-tmp/		(ramdisk tmp store without .git)
 #--------lib/modules/			(modules dir, will be added to system on boot)
-#------B--B-Kernel/			(kernel source goes here)
+#------msm8996/					(kernel source goes here)
 #--------READY-RELEASES/		(When using all selector, all models ready kernels will go to this folder)
-#--------B--B/				(output directory, where the final boot.img is placed)
+#--------B--B/					(output directory, where the final boot.img is placed)
 #----------meta-inf/			(meta-inf folder for your flashable zip)
 #----------system/
+
+# provide toolchain prefix here
+TC_PREFIX=gcc-linaro-7.3.1
 
 # location
 KERNELDIR=$(readlink -f .);
@@ -85,10 +83,10 @@ BUILD_NOW()
 		fi;
 	else
 		echo "Python2 is used! all good, building!";
-	fi;
+	fi;	
 
 	# move into the kernel directory and compile the main image
-	echo "Compiling Kernel.............";
+	echo "Compiling kernel using $TC toolchain.............";
 	if [ ! -f "$KERNELDIR"/.config ]; then
 		if [ "$BUILD_MI5" -eq "1" ]; then
 			cp arch/arm64/configs/b--b_defconfig .config
@@ -116,17 +114,14 @@ BUILD_NOW()
 	fi;
 
 	# build Image
-	# time make ARCH=arm64 CROSS_COMPILE=gcc-linaro-7.3.1/bin/aarch64-linux-gnu- -j ${NR_CPUS}
-	time make ARCH=arm64 CROSS_COMPILE=aarch64--glibc--stable-2018.02-2/bin/aarch64-buildroot-linux-gnu- -j ${NR_CPUS}
-
+	time make ARCH=arm64 CROSS_COMPILE="$TC_PREFIX"/bin/aarch64-linux-gnu- -j ${NR_CPUS} -j ${NR_CPUS}
+	
 	cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm64/configs/"$KERNEL_CONFIG_FILE";
 
 	stat "$KERNELDIR"/arch/arm64/boot/Image.gz-dtb || exit 1;
 
 	# compile the modules, and depmod to create the final Image
-	echo "Compiling Modules............"
-	# time make ARCH=arm64 CROSS_COMPILE=gcc-linaro-7.3.1/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} || exit 1
-	time make ARCH=arm64 CROSS_COMPILE=aarch64--glibc--stable-2018.02-2/bin/aarch64-buildroot-linux-gnu- modules -j ${NR_CPUS} || exit 1
+	time make ARCH=arm64 CROSS_COMPILE="$TC_PREFIX"/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} -j ${NR_CPUS} || exit 1
 
 	# move the compiled Image and modules into the B--B working directory
 	echo "Move compiled objects........"
@@ -159,11 +154,9 @@ BUILD_NOW()
 		cp .config B--B/view_only_config
 
 		# strip not needed debugs from modules.
-		# gcc-linaro-7.3.1/bin/aarch64-linux-gnu-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
-		# gcc-linaro-7.3.1/bin/aarch64-linux-gnu-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
-		aarch64--glibc--stable-2018.02-2/bin/aarch64-buildroot-linux-gnu-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
-		aarch64--glibc--stable-2018.02-2/bin/aarch64-buildroot-linux-gnu-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
-
+		"$TC_PREFIX"/bin/aarch64-buildroot-linux-gnu-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
+		"$TC_PREFIX"/bin/aarch64-buildroot-linux-gnu-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
+		
 		# create the Ramdisk and move it to the output working directory
 		echo "Create Ramdisk..............."
 		scripts/mkbootfs ../Ramdisk-Gemini-tmp | gzip > ramdisk.gz 2>/dev/null
@@ -188,7 +181,6 @@ BUILD_NOW()
 		tags_addr=0x00000100
 		pagesize=4096
 		cmd_line="androidboot.hardware=qcom ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff androidboot.selinux=permissive"
-		#./mkbootimg --kernel Image --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --pagesize $pagesize --kernel_offset $kernel_offset --ramdisk_offset $ramdisk_offset --second_offset $second_offset --tags_offset $tags_addr -o newboot.img
 		./mkbootimg --kernel Image.gz-dtb --ramdisk ramdisk.gz --base $base --cmdline "$cmd_line" --pagesize $pagesize --kernel_offset $kernel_offset --ramdisk_offset $ramdisk_offset --tags_offset $tags_addr -o newboot.img
 		mv newboot.img ../boot.img
 
