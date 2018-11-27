@@ -22,7 +22,17 @@ LANG=C
 #----------system/
 
 # provide toolchain prefix here
-TC_PREFIX=gcc-linaro-7.3.1
+TC_PATH=~/android/toolchains
+
+echo "Select a toolchain by typing its name in."
+echo "Choose between linaro 7.x (linaro) or gnu 8.x. (gnu): "
+read toolchain
+
+if [ $toolchain == "linaro" ]; then
+	TC_PREFIX=gcc-linaro-7.3.1
+elif [ $toolchain == "gnu" ]; then
+	TC_PREFIX=gcc-gnu-8.2.1	
+fi
 
 # location
 KERNELDIR=$(readlink -f .);
@@ -114,14 +124,14 @@ BUILD_NOW()
 	fi;
 
 	# build Image
-	time make ARCH=arm64 CROSS_COMPILE="$TC_PREFIX"/bin/aarch64-linux-gnu- -j ${NR_CPUS} -j ${NR_CPUS}
+	time make ARCH=arm64 CROSS_COMPILE="$TC_PATH"/"$TC_PREFIX"/bin/aarch64-linux-gnu- -j ${NR_CPUS} -j ${NR_CPUS}
 	
 	cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm64/configs/"$KERNEL_CONFIG_FILE";
 
 	stat "$KERNELDIR"/arch/arm64/boot/Image.gz-dtb || exit 1;
 
 	# compile the modules, and depmod to create the final Image
-	time make ARCH=arm64 CROSS_COMPILE="$TC_PREFIX"/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} -j ${NR_CPUS} || exit 1
+	time make ARCH=arm64 CROSS_COMPILE="$TC_PATH"/"$TC_PREFIX"/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} -j ${NR_CPUS} || exit 1
 
 	# move the compiled Image and modules into the B--B working directory
 	echo "Move compiled objects........"
@@ -154,8 +164,8 @@ BUILD_NOW()
 		cp .config B--B/view_only_config
 
 		# strip not needed debugs from modules.
-		"$TC_PREFIX"/bin/aarch64-buildroot-linux-gnu-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
-		"$TC_PREFIX"/bin/aarch64-buildroot-linux-gnu-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
+		"$TC_PATH"/"$TC_PREFIX"/bin/aarch64-buildroot-linux-gnu-strip --strip-unneeded "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
+		"$TC_PATH"/"$TC_PREFIX"/bin/aarch64-buildroot-linux-gnu-strip --strip-debug "$KERNELDIR"/B--B/system/lib/modules/* 2>/dev/null
 		
 		# create the Ramdisk and move it to the output working directory
 		echo "Create Ramdisk..............."
@@ -193,7 +203,7 @@ BUILD_NOW()
 
 		# create the flashable zip file from the contents of the output directory
 		echo "Make flashable zip..........."
-		zip -r B--B-Kernel-"${GETVER}"-N-"$(date +"[%H-%M]-[%d-%m]-Mi5-PWR-CORE")".zip * >/dev/null
+		zip -r B--B-Kernel-N-"$(date +"[%H-%M]-[%d-%m]-Mi5")".zip * >/dev/null
 		stat boot.img
 		rm -f ./*.img
 		cd ..
