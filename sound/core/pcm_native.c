@@ -202,6 +202,7 @@ int snd_pcm_info(struct snd_pcm_substream *substream, struct snd_pcm_info *info)
 {
 	struct snd_pcm *pcm = substream->pcm;
 	struct snd_pcm_str *pstr = substream->pstr;
+	struct snd_pcm_runtime *runtime;
 
 	memset(info, 0, sizeof(*info));
 	info->card = pcm->card->number;
