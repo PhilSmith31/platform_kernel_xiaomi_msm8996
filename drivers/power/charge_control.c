@@ -117,66 +117,6 @@ static ssize_t force_fast_charge_store(struct kobject *kobj,
 }
 ATTR_RW(force_fast_charge);
 
-static ssize_t recharge_at_show(struct kobject *kobj,
-				  struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", recharge_at);
-}
-static ssize_t recharge_at_store(struct kobject *kobj,
-				   struct kobj_attribute *attr,
-				   const char *buf, size_t count)
-{
-	int val;
-	if (kstrtoint(buf, 0, &val))
-		return -EINVAL;
-	if(val < 0 && val > 99 && charge_limit < val)
-		return -EINVAL;
-
-	recharge_at = val;
-
-	return count;
-}
-ATTR_RW(recharge_at);
-
-static ssize_t full_charge_every_show(struct kobject *kobj,
-				  struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%d\n", full_charge_every);
-}
-static ssize_t full_charge_every_store(struct kobject *kobj,
-				   struct kobj_attribute *attr,
-				   const char *buf, size_t count)
-{
-	int val;
-	if (kstrtoint(buf, 0, &val))
-		return -EINVAL;
-	if(val < 0 && val > 100)
-		return -EINVAL;
-	if(val == 1) {
-		charge_limit = 0;
-		trigger_full_charge = 1;
-	}
-
-	full_charge_every = val;
-	finish_full_charge();
-
-	return count;
-}
-ATTR_RW(full_charge_every);
-
-static ssize_t charges_counter_show(struct kobject *kobj,
-				  struct kobj_attribute *attr, char *buf)
-{
-	return (full_charge_every ? sprintf(buf, "%d\n", charges_counter) : -EINVAL);
-}
-static ssize_t charges_counter_store(struct kobject *kobj,
-				   struct kobj_attribute *attr,
-				   const char *buf, size_t count)
-{
-	return -EINVAL;
-}
-ATTR_RO(charges_counter);
-
 static struct attribute *charge_control_attrs[] = {
 	&force_fast_charge_attr.attr,
 	&charge_limit_attr.attr,
