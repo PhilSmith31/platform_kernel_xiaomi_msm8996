@@ -22,7 +22,7 @@ LANG=C
 #----------system/
 
 # provide toolchain prefix here
-TC_PATH=~/android/toolchains
+TC_PATH=~/development/android/toolchains
 
 echo "Select a toolchain by typing its name in."
 echo "Choose between linaro 7.x (linaro) or gnu 8.x. (gnu): "
