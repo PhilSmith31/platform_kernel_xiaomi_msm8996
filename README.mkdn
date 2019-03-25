@@ -1,18 +1,15 @@
 EAS Kernel for Xiaomi Mi5
 ===========
 
-For my personal usage only (and testing), everyone is free to use it, but do not report me bugs/issues because personal usage means... Personal usage :)
------------
-
 Compiling instructions (python2 is needed):
 
-1 - Create an empty directory and cd into it
+1 - Create an empty directory, let's call it x, and cd into it 
 
-    mkdir the_name_you_want && cd the_name_you_want
+    mkdir x && cd x
 
-2 - Create a new folder in the_name_you_want named Ramdisk-Gemini and put the ROM ramdisk into it
+2 - Being in x, create a new folder named Ramdisk-Gemini and put the ROM ramdisk into it
 
-3 - Clone the kernel repo and cd into it
+3 - Still being in x, clone the kernel repo and cd into it
 
     git clone https://github.com/B--B/B--B-Kernel.git && cd B--B-Kernel
 
@@ -27,27 +24,3 @@ Other scripts:
     ./clean_kernel.sh --> runs mrproper and reload kernel config
     ./load_config.sh --> load the defconfig used for compiling
     ./menu.sh --> load the menuconfig for defconfig edits
-
-BIG THANKS TO:
-
-    Alucard24 & Dorimanx for build and cleaning scripts
-    RenderBroken for EAS bringup
-    LOS guys for kernel bringup/updates
-
-FEATURES:
-
-    * Compiled with latest Linaro GCC (7.1.1) optimized for Gemini devices
-    * I/O scheduler: Deadline with screen ON, Noop with screen OFF
-    * Code updated to Linux v3.18.56 stable release
-    * Fixed tons of warns/bugs spotted by latest GCC versions
-    * Synced binder code with Marlin O kernel
-    * Various enhancements/optimizations
-    * Removed UC for Mi5 lite variants
-    * Enabled Advanced TCP Options and set westwood as default
-    * Added various I/O scheduler (Zen, Maple, Fifo)
-    * Disabled some unuseful debugging
-    * Wakelocks: various optimizations
-    * A lot of things i don't remember :)
-    
-    And more changes from here on by PhilSmith31.
-    You can read them in the xda ROM thread.
