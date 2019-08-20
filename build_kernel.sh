@@ -124,14 +124,16 @@ BUILD_NOW()
 	fi;
 
 	# build Image
-	time make ARCH=arm64 CROSS_COMPILE="$TC_PATH"/"$TC_PREFIX"/bin/aarch64-linux-gnu- -j ${NR_CPUS} -j ${NR_CPUS}
+	time make ARCH=arm64 CROSS_COMPILE="$TC_PATH"/"$TC_PREFIX"/bin/aarch64-linux-gnu- -j ${NR_CPUS} -j ${NR_CPUS} > build_image.txt 2>&1
+	python "$KERNELDIR"/extract_warnings.py build_image
 	
 	cp "$KERNELDIR"/.config "$KERNELDIR"/arch/arm64/configs/"$KERNEL_CONFIG_FILE";
 
 	stat "$KERNELDIR"/arch/arm64/boot/Image.gz-dtb || exit 1;
 
 	# compile the modules, and depmod to create the final Image
-	time make ARCH=arm64 CROSS_COMPILE="$TC_PATH"/"$TC_PREFIX"/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} -j ${NR_CPUS} || exit 1
+	time make ARCH=arm64 CROSS_COMPILE="$TC_PATH"/"$TC_PREFIX"/bin/aarch64-linux-gnu- modules -j ${NR_CPUS} -j ${NR_CPUS} > compile_modules.txt 2>&1 || exit 1
+	python "$KERNELDIR"/extract_warnings.py compile_modules
 
 	# move the compiled Image and modules into the B--B working directory
 	echo "Move compiled objects........"
