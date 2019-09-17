@@ -2266,8 +2266,6 @@ tSirRetStatus sirvalidateandrectifyies(tpAniSirGlobal pMac,
     return eHAL_STATUS_SUCCESS;
 }
 
-<<<<<<< HEAD
-=======
 /**
  * sir_copy_hs20_ie() - Update HS 2.0 Information Element.
  * @dest: dest HS IE buffer to be updated
@@ -2405,7 +2403,6 @@ sir_convert_fils_data_to_probersp_struct(tpSirProbeRespBeacon probe_resp,
 {
 }
 #endif
->>>>>>> 8c91fc67bcce... qcacld-2.0: Add sanity check variable_data len in update_fils_data
 tSirRetStatus sirConvertProbeFrame2Struct(tpAniSirGlobal       pMac,
                                           tANI_U8             *pFrame,
                                           tANI_U32             nFrame,
