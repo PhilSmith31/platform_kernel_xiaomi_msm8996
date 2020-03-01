@@ -29,7 +29,7 @@ echo "Choose between linaro 7.x (linaro) or gnu 8.x. (gnu): "
 read toolchain
 
 if [ $toolchain == "linaro" ]; then
-	TC_PREFIX=gcc-linaro-7.4.1
+	TC_PREFIX=gcc-linaro-7.5.0
 elif [ $toolchain == "gnu" ]; then
 	TC_PREFIX=gcc-gnu-8.2.1	
 fi
